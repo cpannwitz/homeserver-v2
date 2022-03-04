@@ -12,13 +12,26 @@ services:
   #                                 REVERSE PROXY
   # ========================================================================= #
 
+  # # # TESTCONTAINER
+  # whoami:
+  #   image: traefik/whoami
+  #   container_name: whoami
+  #   networks:
+  #     - traefik
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.docker.network=traefik"
+  #     - "traefik.http.routers.whoami.rule=Host(`whoami.${DOMAIN}`)"
+  #     - "traefik.http.routers.whoami.entrypoints=websecure"
+  #     - "traefik.http.routers.whoami.tls.certresolver=letsencrypt"
+
   traefik:
     container_name: traefik
     image: traefik:v2.6
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:80"
+      - "443:443"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - traefik-storage:/certificates
@@ -26,19 +39,17 @@ services:
       - traefik
     environment:
       - TZ=${TZ}
-    # depends_on:
-    #   - authelia
     command:
       # Enable API + dashboard
       - --api.dashboard=true
       - --api.debug=true
       # Set log level (DEBUG, PANIC, FATAL, ERROR, WARN, INFO)
-      - --log.level=DEBUG
+      - --log.level=PANIC
       # Enable metrics
       - --metrics.prometheus=true
       - --ping=true
       # Enable correct usage of timezone for logs
-      - --accesslog.fields.names.StartUTC=drop
+      # - --accesslog.fields.names.StartUTC=drop
       # Docker settings
       # - --providers.docker.swarmmode=true
       - --providers.docker.exposedbydefault=false
@@ -58,10 +69,12 @@ services:
       # - --certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
     labels:
       - "traefik.enable=true"
-      # - "traefik.docker.network=traefik"
+      - "traefik.docker.network=traefik"
       - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
       - "traefik.http.routers.traefik.entrypoints=websecure"
       - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
       - "traefik.http.routers.traefik.service=api@internal"
       # - "traefik.http.routers.traefik.middlewares=authelia@docker"
       - "traefik.http.services.traefik.loadbalancer.server.port=8080"
+      - "traefik.http.routers.api.middlewares=auth"
+      - "traefik.http.middlewares.auth.basicauth.users=test:lol123"
