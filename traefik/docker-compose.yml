@@ -1,0 +1,67 @@
+version: "3.8"
+
+networks:
+  traefik:
+    external: true
+
+volumes:
+  traefik-storage: {}
+
+services:
+  # ========================================================================= #
+  #                                 REVERSE PROXY
+  # ========================================================================= #
+
+  traefik:
+    container_name: traefik
+    image: traefik:v2.6
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - traefik-storage:/certificates
+    networks:
+      - traefik
+    environment:
+      - TZ=${TZ}
+    # depends_on:
+    #   - authelia
+    command:
+      # Enable API + dashboard
+      - --api.dashboard=true
+      - --api.debug=true
+      # Set log level (DEBUG, PANIC, FATAL, ERROR, WARN, INFO)
+      - --log.level=DEBUG
+      # Enable metrics
+      - --metrics.prometheus=true
+      - --ping=true
+      # Enable correct usage of timezone for logs
+      - --accesslog.fields.names.StartUTC=drop
+      # Docker settings
+      # - --providers.docker.swarmmode=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik
+      - --providers.providersThrottleDuration=10s
+      # Entrypoints http/https + redirection to  https
+      - --entrypoints.web.address=:80
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=true
+      - --entrypoints.websecure.address=:443
+      # LetsEncrypt certificates settings
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/certificates/acme.json
+      - --certificatesresolvers.letsencrypt.acme.tlschallenge=true
+      # Enable LetsEncrypt staging server
+      # - --certificatesresolvers.letsencrypt.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
+    labels:
+      - "traefik.enable=true"
+      # - "traefik.docker.network=traefik"
+      - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
+      - "traefik.http.routers.traefik.entrypoints=websecure"
+      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.traefik.service=api@internal"
+      # - "traefik.http.routers.traefik.middlewares=authelia@docker"
+      - "traefik.http.services.traefik.loadbalancer.server.port=8080"
