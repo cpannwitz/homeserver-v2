@@ -1,0 +1,14 @@
+###############################################################
+#                         Users Database                      #
+###############################################################
+
+# This file can be used if you do not have an LDAP set up.
+
+# List of users (replace 'myname')
+users:
+  myname:
+    displayname: "myname"
+    # password: RUN -> "docker run authelia/authelia:latest authelia hash-password 'yourpassword'"
+    email: myname@email.com
+    groups:
+      - admin

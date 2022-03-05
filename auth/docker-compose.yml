@@ -1,0 +1,71 @@
+version: "3.8"
+
+networks:
+  traefik:
+    external: true
+  authelia:
+    external: true
+
+volumes:
+  autheliaredis-storage: {}
+  autheliapg-storage: {}
+
+services:
+  # ========================================================================= #
+  #                                 AUTHENTICATION
+  # ========================================================================= #
+
+  authelia:
+    container_name: authelia
+    image: authelia/authelia:4
+    user: "${PUID}:${PGID}"
+    restart: unless-stopped
+    depends_on:
+      - autheliapg
+      - autheliaredis
+    volumes:
+      - ./:/config
+    networks:
+      - traefik
+      - authelia
+    environment:
+      - TZ=${TZ}
+      - AUTHELIA_JWT_SECRET_FILE=/config/secrets/authelia_jwt
+      - AUTHELIA_SESSION_SECRET_FILE=/config/secrets/authelia_session
+      - AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE=/config/secrets/authelia_smtp
+      - AUTHELIA_STORAGE_POSTGRES_PASSWORD_FILE=/config/secrets/authelia_postgres
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`login.${DOMAIN}`)"
+      - "traefik.http.routers.authelia.entrypoints=websecure"
+      - "traefik.http.routers.authelia.tls.certresolver=letsencrypt"
+      - "traefik.http.services.authelia.loadbalancer.server.port=9091"
+      # Custom Authelia_Traefik-Labels forwarding auth headers information
+      - "traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/verify?rd=https://login.${DOMAIN}/"
+      - "traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User, Remote-Groups, Remote-Name, Remote-Email"
+
+  autheliapg:
+    container_name: autheliapg
+    image: postgres:14-alpine
+    restart: unless-stopped
+    volumes:
+      - autheliapg-storage:/var/lib/postgresql/data
+    networks:
+      - authelia
+    environment:
+      - TZ=${TZ}
+      - POSTGRES_PASSWORD=${AUTHELIA_PG_PASSWORD}
+      - POSTGRES_USER=authelia
+      - POSTGRES_DB=authelia
+
+  autheliaredis:
+    container_name: autheliaredis
+    image: redis:6-alpine
+    restart: unless-stopped
+    volumes:
+      - autheliaredis-storage:/data
+    networks:
+      - authelia
+    environment:
+      - TZ=${TZ}

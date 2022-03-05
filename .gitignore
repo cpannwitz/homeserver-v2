@@ -1,3 +1,6 @@
 **/*.env
 
 /ddclient/ddclient.conf
+/auth/secrets
+/auth/configuration.yml
+/auth/users_database.yml
