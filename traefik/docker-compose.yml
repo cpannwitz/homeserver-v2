@@ -3,6 +3,8 @@ version: "3.8"
 networks:
   traefik:
     external: true
+  socketproxy:
+    external: true
 
 volumes:
   traefik-storage: {}
@@ -29,14 +31,18 @@ services:
     container_name: traefik
     image: traefik:v2.6
     restart: unless-stopped
+    depends_on:
+      - socketproxy
     ports:
       - "80:80"
       - "443:443"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - traefik-storage:/certificates
     networks:
       - traefik
+      - socketproxy
+    volumes:
+      # REPLACED BY SOCKETPROXY | --providers.docker.endpoint
+      # - /var/run/docker.sock:/var/run/docker.sock
+      - traefik-storage:/certificates
     environment:
       - TZ=${TZ}
     command:
@@ -54,6 +60,7 @@ services:
       # - --providers.docker.swarmmode=true
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=traefik
+      - --providers.docker.endpoint=tcp://socketproxy:2375
       - --providers.providersThrottleDuration=10s
       # Entrypoints http/https + redirection to  https
       - --entrypoints.web.address=:80
@@ -78,3 +85,19 @@ services:
       - "traefik.http.services.traefik.loadbalancer.server.port=8080"
       - "traefik.http.routers.api.middlewares=auth"
       - "traefik.http.middlewares.auth.basicauth.users=test:lol123"
+
+  socketproxy:
+    container_name: socketproxy
+    image: tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    ports:
+      - 2375
+    networks:
+      - socketproxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      CONTAINERS: 1
+      SERVICES: 1
+      NETWORKS: 1
+      TASKS: 1
