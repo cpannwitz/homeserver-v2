@@ -30,7 +30,9 @@ services:
   traefik:
     container_name: traefik
     image: traefik:v2.6
-    restart: unless-stopped
+    restart: always
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       - socketproxy
     ports:
@@ -89,15 +91,39 @@ services:
   socketproxy:
     container_name: socketproxy
     image: tecnativa/docker-socket-proxy:latest
-    restart: unless-stopped
-    ports:
-      - 2375
+    restart: always
+    security_opt:
+      - no-new-privileges:true
     networks:
       - socketproxy
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      CONTAINERS: 1
-      SERVICES: 1
-      NETWORKS: 1
-      TASKS: 1
+      - LOG_LEVEL=info # debug,info,notice,warning,err,crit,alert,emerg
+      # # 0 to revoke access | 1 to grant access.
+      # # Granted by Default
+      # - EVENTS=1
+      # - PING=1
+      # - VERSION=1
+      # # Revoked by Default
+      # - AUTH=0
+      # - SECRETS=0
+      # - POST=1 # Watchtower
+      # # Custom
+      - BUILD=0
+      - COMMIT=0
+      - CONFIGS=0
+      - CONTAINERS=1 # Traefik, Portainer
+      - DISTRIBUTION=0
+      - EXEC=0
+      - IMAGES=1 # Portainer
+      - INFO=1 # Portainer
+      - NETWORKS=1 # Portainer
+      - NODES=0
+      - PLUGINS=0
+      - SERVICES=1 # Portainer
+      - SESSION=0
+      - SWARM=0
+      - SYSTEM=0
+      - TASKS=1 # Portainer
+      - VOLUMES=1 # Portainer
