@@ -3,18 +3,27 @@ version: "3.8"
 networks:
   traefik:
     external: true
+  socketproxy:
+    external: true
+
+volumes:
+  portainer-storage: {}
+  # netdatalib-storage: {}
+  # netdatacache-storage: {}
 
 services:
   dozzle:
     container_name: dozzle
     image: amir20/dozzle:v3.10.2
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     networks:
       - traefik
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - socketproxy
     environment:
       - DOZZLE_NO_ANALYTICS=true
+      - DOCKER_HOST=tcp://socketproxy:2375
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dozzle.rule=Host(`dozzle.${DOMAIN}`)"
@@ -22,3 +31,53 @@ services:
       - "traefik.http.routers.dozzle.tls.certresolver=letsencrypt"
       - "traefik.http.routers.dozzle.middlewares=authelia@docker"
       - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
+
+  portainer:
+    container_name: portainer
+    image: portainer/portainer-ce:2.11.1-alpine
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - traefik
+      - socketproxy
+    volumes:
+      - portainer-storage:/data
+    command: -H tcp://socketproxy:2375
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.portainer.middlewares=authelia@docker"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+
+  # netdata:
+  #   image: netdata/netdata:v1
+  #   container_name: netdata
+  #   # ports:
+  #   #   - 19999:19999
+  #   restart: unless-stopped
+  #   cap_add:
+  #     - SYS_PTRACE
+  #   security_opt:
+  #     - apparmor:unconfined
+  #     - no-new-privileges:true
+  #   volumes:
+  #     - ./netdata:/etc/netdata
+  #     - netdatalib-storage:/var/lib/netdata
+  #     - netdatacache-storage:/var/cache/netdata
+  #     - /etc/passwd:/host/etc/passwd:ro
+  #     - /etc/group:/host/etc/group:ro
+  #     - /proc:/host/proc:ro
+  #     - /sys:/host/sys:ro
+  #     - /etc/os-release:/host/etc/os-release:ro
+  #   environment:
+  #     - DOCKER_HOST=proxy:2375
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.portainer.rule=Host(`netdata.${DOMAIN}`)"
+  #     - "traefik.http.routers.portainer.entrypoints=websecure"
+  #     - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
+  #     - "traefik.http.routers.portainer.middlewares=authelia@docker"
+  #     - "traefik.http.services.portainer.loadbalancer.server.port=19999"
