@@ -1,0 +1,58 @@
+version: "3.9"
+
+networks:
+  traefik:
+    external: true
+  socketproxy:
+    external: true
+
+volumes:
+  portainer-storage: {}
+
+services:
+  dozzle:
+    container_name: dozzle
+    image: amir20/dozzle:v3.10.2
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - traefik
+      - socketproxy
+    networks:
+      - traefik
+      - socketproxy
+    environment:
+      - DOZZLE_NO_ANALYTICS=true
+      - DOCKER_HOST=tcp://socketproxy:2375
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dozzle.rule=Host(`dozzle.${DOMAIN}`)"
+      - "traefik.http.routers.dozzle.entrypoints=websecure"
+      - "traefik.http.routers.dozzle.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dozzle.middlewares=authelia@docker"
+      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
+
+  portainer:
+    container_name: portainer
+    image: portainer/portainer-ce:2.11.1
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - traefik
+      - socketproxy
+    networks:
+      - traefik
+      - socketproxy
+    volumes:
+      - portainer-storage:/data
+      # - /var/run/docker.sock:/var/run/docker.sock
+    # command: -H tcp://socketproxy:2375
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
+      - "traefik.http.routers.portainer.entrypoints=websecure"
+      - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.portainer.middlewares=authelia@docker"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"

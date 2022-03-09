@@ -4,3 +4,4 @@
 /auth/secrets
 /auth/configuration.yml
 /auth/users_database.yml
+/monitoring/alertmanager/config.yml

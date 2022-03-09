@@ -5,54 +5,149 @@ networks:
     external: true
   socketproxy:
     external: true
+  monitoring:
+    external: true
 
 volumes:
-  portainer-storage: {}
+  prometheus-storage: {}
+  grafana-storage: {}
+  alertmanager-storage: {}
 
 services:
-  dozzle:
-    container_name: dozzle
-    image: amir20/dozzle:v3.10.2
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    depends_on:
-      - traefik
-      - socketproxy
-    networks:
-      - traefik
-      - socketproxy
-    environment:
-      - DOZZLE_NO_ANALYTICS=true
-      - DOCKER_HOST=tcp://socketproxy:2375
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.dozzle.rule=Host(`dozzle.${DOMAIN}`)"
-      - "traefik.http.routers.dozzle.entrypoints=websecure"
-      - "traefik.http.routers.dozzle.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.dozzle.middlewares=authelia@docker"
-      - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
+  # ========================================================================= #
+  #                                 MONITORING
+  # ========================================================================= #
 
-  portainer:
-    container_name: portainer
-    image: portainer/portainer-ce:2.11.1
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:v2.33.5
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=60d"
+      - "--storage.tsdb.retention.size=10GB"
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - "--log.level=debug"
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+      - prometheus-storage:/prometheus
+    networks:
+      - traefik
+      - monitoring
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`prometheus.${DOMAIN}`)"
+      - "traefik.http.routers.prometheus.entrypoints=websecure"
+      - "traefik.http.routers.prometheus.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.prometheus.middlewares=authelia@docker"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+
+  nodeexporter:
+    container_name: nodeexporter
+    image: prom/node-exporter:v1.3.1
+    restart: unless-stopped
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.rootfs=/rootfs"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+      - "--log.level=debug"
+    networks:
+      - monitoring
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+
+  cadvisor:
+    container_name: cadvisor
+    image: zcube/cadvisor:v0.37.5
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
-    depends_on:
-      - traefik
-      - socketproxy
+    networks:
+      - monitoring
+    environment:
+      - TZ=${TZ}
+    command:
+      - "--housekeeping_interval=20s"
+      - "--docker_only=true"
+      - "--docker=tcp://socketproxy:2375"
+      - "--logtostderr=true"
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.cadvisor.rule=Host(`cadvisor.${DOMAIN}`)"
+    #   - "traefik.http.routers.cadvisor.entrypoints=websecure"
+    #   - "traefik.http.routers.cadvisor.tls.certresolver=letsencrypt"
+    #   - "traefik.http.routers.cadvisor.middlewares=authelia@docker"
+    #   - "traefik.http.services.cadvisor.loadbalancer.server.port=8080"
+    # see: https://github.com/google/cadvisor/issues/2150
+    # privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /dev/disk/:/dev/disk:ro
+
+  blackbox:
+    container_name: blackbox
+    image: prom/blackbox-exporter:v0.19.0
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/blackbox.yml"
+      - "--log.level=debug"
+    networks:
+      - monitoring
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+
+  alertmanager:
+    container_name: alertmanager
+    image: prom/alertmanager:v0.23.0
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/alertmanager/config.yml"
+      - "--storage.path=/alertmanager"
+    volumes:
+      - alertmanager-storage:/alertmanager
+      - ./alertmanager:/etc/alertmanager
     networks:
       - traefik
-      - socketproxy
-    volumes:
-      - portainer-storage:/data
-      # - /var/run/docker.sock:/var/run/docker.sock
-    # command: -H tcp://socketproxy:2375
+      - monitoring
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
-      - "traefik.http.routers.portainer.entrypoints=websecure"
-      - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.portainer.middlewares=authelia@docker"
-      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+      - "traefik.http.routers.alertmanager.rule=Host(`alertmanager.${DOMAIN}`)"
+      - "traefik.http.routers.alertmanager.entrypoints=websecure"
+      - "traefik.http.routers.alertmanager.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.alertmanager.middlewares=authelia@docker"
+      - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana-oss:8.4.3
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana:/etc/grafana
+    networks:
+      - traefik
+      - monitoring
+    environment:
+      - TZ=${TZ}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_LOG_LEVEL=debug
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.${DOMAIN}`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.grafana.middlewares=authelia@docker"
+      - "traefik.http.services.grafana.loadbalancer.server.port=3000"
