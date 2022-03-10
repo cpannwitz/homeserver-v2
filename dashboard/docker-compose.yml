@@ -1,0 +1,32 @@
+version: "3.9"
+
+networks:
+  traefik:
+    external: true
+
+services:
+  dashy:
+    container_name: dashy
+    image: lissy93/dashy:2.0.4
+    restart: unless-stopped
+    volumes:
+      - ./conf.yml:/app/public/conf.yml
+    networks:
+      - traefik
+    environment:
+      - NODE_ENV=production
+      - UID=${PUID}
+      - GID=${PGID}
+    healthcheck:
+      test: ['CMD', 'node', '/app/services/healthcheck']
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashy.rule=Host(`home.${DOMAIN}`)"
+      - "traefik.http.routers.dashy.entrypoints=websecure"
+      - "traefik.http.routers.dashy.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashy.middlewares=authelia@docker"
+      - "traefik.http.services.dashy.loadbalancer.server.port=80"

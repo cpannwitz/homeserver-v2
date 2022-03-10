@@ -1,0 +1,21 @@
+# TODO: https://dashy.to/docs/widgets
+pageInfo:
+  title: asd - Home
+  description: Dashboard of asd.de
+  navLinks:
+  - title: Login
+    path: https://asd.de
+appConfig:
+  allowConfigEdit: false
+  showSplashScreen: true
+  statusCheck: true
+  statusCheckInterval: 120
+  theme: nord
+  disableUpdateChecks: true
+sections:
+- name: asd
+  items:
+  - title: asd
+    description: asd
+    icon: asd
+    url: https://asd.de/
