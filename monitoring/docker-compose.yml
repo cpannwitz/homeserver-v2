@@ -3,8 +3,6 @@ version: "3.9"
 networks:
   traefik:
     external: true
-  socketproxy:
-    external: true
   monitoring:
     external: true
 
@@ -75,17 +73,6 @@ services:
       - "--housekeeping_interval=20s"
       - "--docker_only=true"
       - "--logtostderr=true"
-      # currently not working with socketproxy, must use real docker socket
-      # - "--docker=tcp://socketproxy:2375"
-    # labels:
-    #   - "traefik.enable=true"
-    #   - "traefik.http.routers.cadvisor.rule=Host(`cadvisor.${DOMAIN}`)"
-    #   - "traefik.http.routers.cadvisor.entrypoints=websecure"
-    #   - "traefik.http.routers.cadvisor.tls.certresolver=letsencrypt"
-    #   - "traefik.http.routers.cadvisor.middlewares=authelia@docker"
-    #   - "traefik.http.services.cadvisor.loadbalancer.server.port=8080"
-    # see: https://github.com/google/cadvisor/issues/2150
-    # privileged: true
     devices:
       - /dev/kmsg:/dev/kmsg
     volumes:
@@ -93,7 +80,6 @@ services:
       - /var/run:/var/run:rw
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
-      # currently not working with socketproxy, must use real docker socket
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /dev/disk/:/dev/disk:ro
 

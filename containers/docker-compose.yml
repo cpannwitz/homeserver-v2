@@ -3,8 +3,6 @@ version: "3.9"
 networks:
   traefik:
     external: true
-  socketproxy:
-    external: true
 
 volumes:
   portainer-storage: {}
@@ -18,13 +16,12 @@ services:
       - no-new-privileges:true
     depends_on:
       - traefik
-      - socketproxy
     networks:
       - traefik
-      - socketproxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - DOZZLE_NO_ANALYTICS=true
-      - DOCKER_HOST=tcp://socketproxy:2375
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.dozzle.rule=Host(`dozzle.${DOMAIN}`)"
@@ -41,14 +38,11 @@ services:
       - no-new-privileges:true
     depends_on:
       - traefik
-      - socketproxy
     networks:
       - traefik
-      - socketproxy
     volumes:
       - portainer-storage:/data
-      # - /var/run/docker.sock:/var/run/docker.sock
-    # command: -H tcp://socketproxy:2375
+      - /var/run/docker.sock:/var/run/docker.sock
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.portainer.rule=Host(`portainer.${DOMAIN}`)"
@@ -56,3 +50,14 @@ services:
       - "traefik.http.routers.portainer.tls.certresolver=letsencrypt"
       - "traefik.http.routers.portainer.middlewares=authelia@docker"
       - "traefik.http.services.portainer.loadbalancer.server.port=9000"
+
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower:latest
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 120 --cleanup --rolling-restart
