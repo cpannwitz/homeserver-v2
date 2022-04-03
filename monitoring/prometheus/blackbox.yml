@@ -2,7 +2,7 @@ modules:
   # HTTP probe
   http_2xx:
     prober: http
-    timeout: 5s
+    timeout: 10s
     http:
       method: GET
       # ip4 needed, if docker isn't setup for ipv6!
@@ -10,7 +10,7 @@ modules:
   # HTTPS probe
   https_2xx:
     prober: http
-    timeout: 5s
+    timeout: 10s
     http:
       method: GET
       fail_if_not_ssl: true
