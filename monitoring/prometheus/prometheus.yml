@@ -10,16 +10,16 @@ global:
     monitor: "pnwtz.dev"
 
 # Load and evaluate rules in this file every 'evaluation_interval' seconds.
-rule_files:
-  - "alert.rules.yml"
+# rule_files:
+#   - "alert.rules.yml"
 
-# alert
-alerting:
-  alertmanagers:
-    - scheme: http
-      static_configs:
-        - targets:
-            - "alertmanager:9093"
+# # alert
+# alerting:
+#   alertmanagers:
+#     - scheme: http
+#       static_configs:
+#         - targets:
+#             - "alertmanager:9093"
 
 # A scrape configuration containing exactly one endpoint to scrape:
 # Here it's Prometheus itself.
@@ -50,18 +50,18 @@ scrape_configs:
     static_configs:
       - targets: ["cadvisor:8080"]
 
-  - job_name: "blackbox"
-    scrape_interval: 1m
-    metrics_path: /probe
-    params:
-      module: [http_2xx, https_2xx] # Look for a HTTP 200 response.
-    static_configs:
-      - targets:
-          - https://google.com # Target to probe with https.
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: __param_target
-      - source_labels: [__param_target]
-        target_label: instance
-      - target_label: __address__
-        replacement: blackbox:9115 # The blackbox exporter's real hostname:port.
+  # - job_name: "blackbox"
+  #   scrape_interval: 1m
+  #   metrics_path: /probe
+  #   params:
+  #     module: [http_2xx, https_2xx] # Look for a HTTP 200 response.
+  #   static_configs:
+  #     - targets:
+  #         - https://google.com # Target to probe with https.
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       target_label: __param_target
+  #     - source_labels: [__param_target]
+  #       target_label: instance
+  #     - target_label: __address__
+  #       replacement: blackbox:9115 # The blackbox exporter's real hostname:port.

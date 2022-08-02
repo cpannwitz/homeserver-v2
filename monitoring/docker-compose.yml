@@ -9,7 +9,8 @@ networks:
 volumes:
   prometheus-storage: {}
   grafana-storage: {}
-  alertmanager-storage: {}
+  # alertmanager-storage: {}
+  kuma: {}
 
 services:
   # ========================================================================= #
@@ -83,38 +84,38 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /dev/disk/:/dev/disk:ro
 
-  blackbox:
-    container_name: blackbox
-    image: prom/blackbox-exporter:v0.19.0
-    restart: unless-stopped
-    command:
-      - "--config.file=/etc/prometheus/blackbox.yml"
-      - "--log.level=debug"
-    networks:
-      - monitoring
-    volumes:
-      - ./prometheus/:/etc/prometheus/
+  # blackbox:
+  #   container_name: blackbox
+  #   image: prom/blackbox-exporter:v0.19.0
+  #   restart: unless-stopped
+  #   command:
+  #     - "--config.file=/etc/prometheus/blackbox.yml"
+  #     - "--log.level=debug"
+  #   networks:
+  #     - monitoring
+  #   volumes:
+  #     - ./prometheus/:/etc/prometheus/
 
-  alertmanager:
-    container_name: alertmanager
-    image: prom/alertmanager:v0.23.0
-    restart: unless-stopped
-    command:
-      - "--config.file=/etc/alertmanager/config.yml"
-      - "--storage.path=/alertmanager"
-    volumes:
-      - alertmanager-storage:/alertmanager
-      - ./alertmanager:/etc/alertmanager
-    networks:
-      - traefik
-      - monitoring
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.alertmanager.rule=Host(`alertmanager.${DOMAIN}`)"
-      - "traefik.http.routers.alertmanager.entrypoints=websecure"
-      - "traefik.http.routers.alertmanager.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.alertmanager.middlewares=authelia@docker"
-      - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
+  # alertmanager:
+  #   container_name: alertmanager
+  #   image: prom/alertmanager:v0.23.0
+  #   restart: unless-stopped
+  #   command:
+  #     - "--config.file=/etc/alertmanager/config.yml"
+  #     - "--storage.path=/alertmanager"
+  #   volumes:
+  #     - alertmanager-storage:/alertmanager
+  #     - ./alertmanager:/etc/alertmanager
+  #   networks:
+  #     - traefik
+  #     - monitoring
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.alertmanager.rule=Host(`alertmanager.${DOMAIN}`)"
+  #     - "traefik.http.routers.alertmanager.entrypoints=websecure"
+  #     - "traefik.http.routers.alertmanager.tls.certresolver=letsencrypt"
+  #     - "traefik.http.routers.alertmanager.middlewares=authelia@docker"
+  #     - "traefik.http.services.alertmanager.loadbalancer.server.port=9093"
 
   grafana:
     container_name: grafana
@@ -139,3 +140,24 @@ services:
       - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
       - "traefik.http.routers.grafana.middlewares=authelia@docker"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
+
+  kuma:
+    container_name: kuma
+    image: louislam/uptime-kuma:1
+    restart: unless-stopped
+    volumes:
+      - kuma:/app/data
+    networks:
+      - traefik
+      - monitoring
+    environment:
+      - TZ=${TZ}
+      - PUID=${PUID}
+      - PGID=${PGID}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.kuma.rule=Host(`kuma.${DOMAIN}`)"
+      - "traefik.http.routers.kuma.entrypoints=websecure"
+      - "traefik.http.routers.kuma.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.kuma.middlewares=authelia@docker"
+      - "traefik.http.services.kuma.loadbalancer.server.port=3001"
